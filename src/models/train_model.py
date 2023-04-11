@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
+from complex_lstm_model import ComplexLSTMModel  # Import the ComplexLSTMModel class
 
 ticker = "^GSPC"  # S&P 500 ticker
 # start_date = "2015-01-01"
@@ -51,51 +52,6 @@ X_test = torch.tensor(X_test, dtype=torch.float32)
 train_data = torch.utils.data.TensorDataset(X_train, y_train)
 train_loader = torch.utils.data.DataLoader(train_data, batch_size=32, shuffle=False)
 
-
-# Define LSTM model
-# class LSTMModel(nn.Module):
-#     def __init__(self, input_dim, hidden_dim, num_layers, output_dim):
-#         super(LSTMModel, self).__init__()
-#         self.hidden_dim = hidden_dim
-#         self.num_layers = num_layers
-#         self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True)
-#         self.dropout = nn.Dropout(0.2)
-#         self.fc = nn.Linear(hidden_dim, output_dim)
-
-#     def forward(self, x):
-#         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_dim).requires_grad_()
-#         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_dim).requires_grad_()
-#         out, (hn, cn) = self.lstm(x, (h0.detach(), c0.detach()))
-#         out = self.dropout(out[:, -1, :])
-#         out = self.fc(out)
-#         return out
-
-class ComplexLSTMModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim, num_layers, output_dim):
-        super(ComplexLSTMModel, self).__init__()
-        self.hidden_dim = hidden_dim
-        self.num_layers = num_layers
-        self.lstm1 = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True)
-        self.lstm2 = nn.LSTM(hidden_dim, hidden_dim, num_layers, batch_first=True)
-        self.dropout = nn.Dropout(0.2)
-        self.batch_norm = nn.BatchNorm1d(hidden_dim)
-        self.fc = nn.Linear(hidden_dim, output_dim)
-
-    def forward(self, x):
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_dim).requires_grad_()
-        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_dim).requires_grad_()
-        out, (hn, cn) = self.lstm1(x, (h0.detach(), c0.detach()))
-        
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_dim).requires_grad_()
-        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_dim).requires_grad_()
-        out, (hn, cn) = self.lstm2(out, (h0.detach(), c0.detach()))
-        
-        out = self.batch_norm(out[:, -1, :])
-        out = F.relu(out)
-        out = self.dropout(out)
-        out = self.fc(out)
-        return out
-
 input_dim = 1
 hidden_dim = 100
 num_layers = 2
@@ -124,6 +80,7 @@ for epoch in range(num_epochs):
     print(f"Epoch {epoch+1}/{num_epochs}, Loss: {loss.item()}")
 
 # Make predictions on the test data
+model.eval()  # Set the model to evaluation mode
 with torch.no_grad():
     y_pred = model(X_test)
     y_pred = y_pred.detach().numpy()
@@ -135,6 +92,7 @@ y_test = scaler.inverse_transform(y_test.reshape(-1, 1))
 # Make a prediction for today
 last_sequence = np.reshape(scaled_data[-sequence_length:], (1, sequence_length, 1))
 last_sequence = torch.tensor(last_sequence, dtype=torch.float32)
+model.eval()  # Set the model to evaluation mode
 with torch.no_grad():
     today_pred = model(last_sequence)
     today_pred = today_pred.detach().numpy()
@@ -145,5 +103,4 @@ print(f"Today's predicted stock price: {today_pred[0][0]}")
 model_path = "stock_prediction_model.pt"
 torch.save(model.state_dict(), model_path)
 print("Model saved to", model_path)
-
 
