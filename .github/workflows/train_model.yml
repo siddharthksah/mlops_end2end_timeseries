@@ -1,0 +1,23 @@
+name: Train model everyday at midnight
+on:
+  schedule:
+    - cron: '0 0 * * *'  # runs everyday at midnight
+
+jobs:
+  train_model:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      
+      - name: Set up Python 3.x
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Train model
+        run: python src/models/train_model.py
